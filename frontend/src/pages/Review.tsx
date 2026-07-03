@@ -146,17 +146,8 @@ export default function Review() {
             const result = await approveInvoice(invoice.invoice_id);
             setInvoice(result.invoice);
             setActiveTab('entities');
-            
-            // Check export results and show appropriate message
-            const sheetsStatus = result.export_results?.sheets;
-            if (sheetsStatus && sheetsStatus !== 'success') {
-                console.error('Google Sheets export failed:', sheetsStatus);
-                alert(`Invoice approved, but Google Sheets export failed: ${sheetsStatus}`);
-            } else if (!sheetsStatus) {
-                alert('Invoice approved, but Google Sheets is not configured.');
-            } else {
-                setShowApprovedBanner(true);
-            }
+            // Show a clean approval toast instead of a blocking alert
+            setShowApprovedBanner(true);
         } catch (error) {
             alert((error as Error).message);
         } finally {

@@ -365,12 +365,8 @@ def _run_exports(inv: Invoice) -> dict:
         if settings.google_sheet_id:
             export_invoice_to_sheets(inv, file_url)
             results["sheets"] = "success"
-        else:
-            results["sheets"] = "error: google_sheet_id not configured"
-            logger.warning(f"Google Sheets export skipped for invoice {inv.id}: google_sheet_id not set")
     except Exception as e:  # noqa: BLE001
         results["sheets"] = f"error: {e}"
-        logger.error(f"Google Sheets export failed for invoice {inv.id}: {e}", exc_info=True)
 
     try:
         if settings.export_webhook_url:
@@ -378,7 +374,6 @@ def _run_exports(inv: Invoice) -> dict:
             results["webhook"] = "success"
     except Exception as e:  # noqa: BLE001
         results["webhook"] = f"error: {e}"
-        logger.error(f"Webhook export failed for invoice {inv.id}: {e}", exc_info=True)
 
     return results
 
