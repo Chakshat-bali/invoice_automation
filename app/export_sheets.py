@@ -27,11 +27,26 @@ LINE_ITEM_HEADERS = ["Invoice Number", "Description", "Quantity", "Unit Price", 
 
 
 def _get_client():
+    # Prefer inline JSON content (set as env var on cloud deployments like Railway)
+    if settings.google_service_account_json_content:
+        try:
+            info = json.loads(settings.google_service_account_json_content)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                "GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT is set but is not valid JSON. "
+                f"Details: {e}"
+            )
+        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        return gspread.authorize(creds)
+
+    # Fall back to file path (local dev with credentials/service_account.json)
     creds_path = settings.google_service_account_json
     if not os.path.exists(creds_path):
         raise FileNotFoundError(
-            f"Service account JSON not found at '{creds_path}'. "
-            f"Please ensure credentials/service_account.json exists or set GOOGLE_SERVICE_ACCOUNT_JSON in .env"
+            f"Service account credentials not found. "
+            f"For local dev: place the JSON at '{creds_path}'. "
+            f"For Railway/cloud: set the GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT env var "
+            f"to the full contents of the service account JSON file."
         )
     creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
     return gspread.authorize(creds)

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     google_service_account_json: str = "./credentials/service_account.json"
+    google_service_account_json_content: str = ""  # Full JSON content as env var (for cloud deployments)
     google_sheet_id: str = ""
     sheets_mode: str = "flat"
     
