@@ -28,8 +28,10 @@ FLAT_HEADERS = [
     "Tax Amount",
     "Total Amount",
     "Status",
+    "Details",
 ]
 LEGACY_FLAT_HEADERS = ["vendor_name", "customer_name", "subtotal", "tax_amount", "total_amount", "status"]
+LEGACY_DETAILS_HEADER = "details"
 LINE_ITEM_HEADERS = ["Invoice Number", "Description", "Quantity", "Unit Price", "Line Total"]
 
 
@@ -112,6 +114,45 @@ def _safe(val) -> str:
     return str(val)
 
 
+def _build_invoice_summary(invoice: Invoice) -> str:
+    parts = []
+
+    if invoice.vendor_name and invoice.customer_name:
+        parts.append(f"{invoice.vendor_name} -> {invoice.customer_name}")
+    elif invoice.vendor_name:
+        parts.append(f"From {invoice.vendor_name}")
+    elif invoice.customer_name:
+        parts.append(f"To {invoice.customer_name}")
+
+    if invoice.line_items_json:
+        try:
+            items = json.loads(invoice.line_items_json)
+            descriptions = [
+                str(item.get("description", "")).strip()
+                for item in items
+                if item.get("description")
+            ]
+            if descriptions:
+                shown = descriptions[:2]
+                suffix = f" +{len(descriptions) - 2} more" if len(descriptions) > 2 else ""
+                parts.append(f"for {', '.join(shown)}{suffix}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if invoice.total_amount is not None:
+        currency = invoice.currency or ""
+        parts.append(f"totalling {currency} {invoice.total_amount:,.2f}".strip())
+
+    if invoice.payment_terms:
+        parts.append(f"({invoice.payment_terms})")
+
+    return "; ".join(parts) if parts else "-"
+
+
+def _details_value(invoice: Invoice) -> str:
+    return invoice.invoice_summary or _build_invoice_summary(invoice)
+
+
 def export_invoice_to_sheets(invoice: Invoice, file_url: str = ""):
     client = _get_client()
     sh = client.open_by_key(settings.google_sheet_id)
@@ -122,9 +163,12 @@ def export_invoice_to_sheets(invoice: Invoice, file_url: str = ""):
     existing_headers = _normalized_headers(ws.row_values(1))
     legacy_headers = _normalized_headers(LEGACY_FLAT_HEADERS)
     status = invoice.status.replace("_", " ").title() if invoice.status else ""
+    details = _details_value(invoice)
     next_row = _first_empty_row(ws)
 
     if existing_headers[:len(legacy_headers)] == legacy_headers:
+        if len(existing_headers) < 7 or existing_headers[6] != LEGACY_DETAILS_HEADER:
+            ws.update(range_name="G1", values=[[LEGACY_DETAILS_HEADER]])
         row = [
             _safe(invoice.vendor_name),
             _safe(invoice.customer_name),
@@ -132,9 +176,12 @@ def export_invoice_to_sheets(invoice: Invoice, file_url: str = ""):
             _safe(invoice.tax_amount),
             _safe(invoice.total_amount),
             status,
+            details,
         ]
-        ws.update(range_name=f"A{next_row}:F{next_row}", values=[row], value_input_option="USER_ENTERED")
+        ws.update(range_name=f"A{next_row}:G{next_row}", values=[row], value_input_option="USER_ENTERED")
     else:
+        if len(existing_headers) < 11 or existing_headers[10] != "details":
+            ws.update(range_name="K1", values=[["Details"]])
         row = [
             _safe(invoice.invoice_number),
             _safe(invoice.vendor_name),
@@ -146,8 +193,9 @@ def export_invoice_to_sheets(invoice: Invoice, file_url: str = ""):
             _safe(invoice.tax_amount),
             _safe(invoice.total_amount),
             status,
+            details,
         ]
-        ws.update(range_name=f"A{next_row}:J{next_row}", values=[row], value_input_option="USER_ENTERED")
+        ws.update(range_name=f"A{next_row}:K{next_row}", values=[row], value_input_option="USER_ENTERED")
 
     logger.info("Exported invoice %s to Google Sheets 'Invoices' tab row %s", invoice.id, next_row)
 
