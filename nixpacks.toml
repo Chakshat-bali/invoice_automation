@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = [
+  "python312",
+  "gcc",
+  "glib",
+  "glibc",
+  "libGL",
+  "zlib"
+]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
