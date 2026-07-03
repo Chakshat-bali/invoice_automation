@@ -24,6 +24,17 @@ export async function fetchInvoices(status?: string, vendor?: string): Promise<I
     return await response.json();
 }
 
+
+export function getExcelExportUrl(status?: string): string {
+  const params = new URLSearchParams();
+  if (status) params.append("status", status);
+
+  const query = params.toString();
+  return `${API_URL}/export/excel${query ? `?${query}` : ""}`;
+}
+
+
+
 export async function fetchInvoice(id: string): Promise<Invoice> {
     const response = await fetch(`${API_URL}/invoices/${id}`);
     if (!response.ok) throw new Error("Failed to load invoice");

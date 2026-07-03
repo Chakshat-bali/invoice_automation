@@ -17,6 +17,7 @@ import {
     Check
 } from 'lucide-react';
 import './Dashboard.css';
+import { API_URL } from "../api";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -213,11 +214,11 @@ export default function Dashboard() {
                                     <p>Double-check the extracted values. The AI will highlight mathematical mismatches (like incorrect tax rates). Click Approve to sync with Google Sheets!</p>
                                 </div>
                             </div>
-                            
+
                             {/* Gmail OAuth connection status */}
-                            <div style={{ 
-                                marginTop: '24px', 
-                                paddingTop: '20px', 
+                            <div style={{
+                                marginTop: '24px',
+                                paddingTop: '20px',
                                 borderTop: '1px solid var(--border-light)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -239,13 +240,13 @@ export default function Dashboard() {
                                 </div>
                                 <div>
                                     {googleStatus.connected ? (
-                                        <button 
+                                        <button
                                             onClick={handleDisconnectGoogle}
-                                            className="btn-outline" 
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: '8px', 
+                                            className="btn-outline"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
                                                 padding: '8px 16px',
                                                 borderColor: 'var(--danger-light)',
                                                 color: 'var(--danger)'
@@ -256,13 +257,13 @@ export default function Dashboard() {
                                             <Link2Off size={16} /> Disconnect Account
                                         </button>
                                     ) : (
-                                        <button 
+                                        <button
                                             onClick={() => setShowConnectModal(true)}
-                                            className="btn-primary" 
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: '8px', 
+                                            className="btn-primary"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
                                                 padding: '8px 16px',
                                                 fontSize: '14px'
                                             }}
@@ -360,7 +361,9 @@ export default function Dashboard() {
                                 Sync Email
                             </button>
                             <button
-                                onClick={() => { window.open(`/export/excel`, '_blank'); }}
+                                onClick={() => {
+                                    window.open(`${API_URL}/export/excel`, "_blank");
+                                }}
                                 className="btn-primary"
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
                             >
@@ -446,9 +449,9 @@ export default function Dashboard() {
                                                 <button className="action-btn" title="Edit/Review" onClick={(e) => { e.stopPropagation(); navigate(`/review/${inv.invoice_id}`); }}>
                                                     <Edit3 size={16} />
                                                 </button>
-                                                <button 
-                                                    className="action-btn" 
-                                                    title="Delete" 
+                                                <button
+                                                    className="action-btn"
+                                                    title="Delete"
                                                     style={{ color: 'var(--danger)' }}
                                                     onClick={async (e) => {
                                                         e.stopPropagation();
@@ -510,10 +513,10 @@ export default function Dashboard() {
                                             Open Review →
                                         </button>
                                     ) : (
-                                        <button 
-                                            type="button" 
-                                            onClick={handleCancelProcessing} 
-                                            className="btn-outline" 
+                                        <button
+                                            type="button"
+                                            onClick={handleCancelProcessing}
+                                            className="btn-outline"
                                             style={{ padding: '10px', borderColor: 'var(--danger-light)', color: 'var(--danger)' }}
                                         >
                                             Cancel Processing
@@ -536,13 +539,13 @@ export default function Dashboard() {
                         <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '24px', lineHeight: 1.5 }}>
                             Enable fully automated background ingestion for your business invoices.
                         </p>
-                        
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
                             <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                <div style={{ 
-                                    background: 'rgba(59, 130, 246, 0.1)', 
-                                    color: 'var(--accent)', 
-                                    padding: '10px', 
+                                <div style={{
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    color: 'var(--accent)',
+                                    padding: '10px',
                                     borderRadius: '10px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -559,10 +562,10 @@ export default function Dashboard() {
                             </div>
 
                             <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                <div style={{ 
-                                    background: 'rgba(59, 130, 246, 0.1)', 
-                                    color: 'var(--accent)', 
-                                    padding: '10px', 
+                                <div style={{
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    color: 'var(--accent)',
+                                    padding: '10px',
                                     borderRadius: '10px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -579,10 +582,10 @@ export default function Dashboard() {
                             </div>
 
                             <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                <div style={{ 
-                                    background: 'rgba(59, 130, 246, 0.1)', 
-                                    color: 'var(--accent)', 
-                                    padding: '10px', 
+                                <div style={{
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    color: 'var(--accent)',
+                                    padding: '10px',
                                     borderRadius: '10px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -600,14 +603,14 @@ export default function Dashboard() {
                         </div>
 
                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button 
+                            <button
                                 onClick={() => setShowConnectModal(false)}
                                 className="btn-outline"
                                 style={{ padding: '10px 20px', minWidth: '100px' }}
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setShowConnectModal(false);
                                     handleConnectGoogle();
