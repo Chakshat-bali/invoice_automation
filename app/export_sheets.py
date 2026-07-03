@@ -7,6 +7,7 @@ API, download the JSON key to `credentials/service_account.json`, and share
 your target Google Sheet with the service account's email address.
 """
 import json
+import os
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -22,7 +23,13 @@ LINE_ITEM_HEADERS = ["Invoice Number", "Description", "Quantity", "Unit Price", 
 
 
 def _get_client():
-    creds = Credentials.from_service_account_file(settings.google_service_account_json, scopes=SCOPES)
+    creds_path = settings.google_service_account_json
+    if not os.path.exists(creds_path):
+        raise FileNotFoundError(
+            f"Service account JSON not found at '{creds_path}'. "
+            f"Please ensure credentials/service_account.json exists or set GOOGLE_SERVICE_ACCOUNT_JSON in .env"
+        )
+    creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
     return gspread.authorize(creds)
 
 

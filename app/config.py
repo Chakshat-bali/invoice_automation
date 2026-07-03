@@ -1,5 +1,10 @@
 import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+
+# Get the project root directory (parent of the app directory)
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class Settings(BaseSettings):
@@ -43,6 +48,19 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Resolve relative paths to absolute paths based on project root
+def _resolve_path(path_str: str) -> str:
+    p = Path(path_str)
+    if p.is_absolute():
+        return str(p)
+    return str(PROJECT_ROOT / p)
+
+
+# Ensure all path settings are resolved to absolute paths
+settings.storage_dir = _resolve_path(settings.storage_dir)
+settings.excel_export_dir = _resolve_path(settings.excel_export_dir)
+settings.google_service_account_json = _resolve_path(settings.google_service_account_json)
 
 os.makedirs(settings.storage_dir, exist_ok=True)
 os.makedirs(settings.excel_export_dir, exist_ok=True)
