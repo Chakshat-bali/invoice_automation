@@ -1,10 +1,7 @@
 """
-Export Layer — Google Sheets
-------------------------------
-Uses a free Google service account (no paid API tier required) via gspread.
-Setup: create a service account in Google Cloud Console, enable the Sheets
-API, download the JSON key to `credentials/service_account.json`, and share
-your target Google Sheet with the service account's email address.
+Export Layer - Google Sheets
+----------------------------
+Uses a Google service account via gspread.
 """
 import json
 import logging
@@ -20,38 +17,58 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-FLAT_HEADERS = ["Invoice Number", "Vendor Name", "Customer Name", "Invoice Date",
-                "Due Date", "Currency", "Subtotal", "Tax Amount", "Total Amount", "Status"]
-
+FLAT_HEADERS = [
+    "Invoice Number",
+    "Vendor Name",
+    "Customer Name",
+    "Invoice Date",
+    "Due Date",
+    "Currency",
+    "Subtotal",
+    "Tax Amount",
+    "Total Amount",
+    "Status",
+]
+LEGACY_FLAT_HEADERS = ["vendor_name", "customer_name", "subtotal", "tax_amount", "total_amount", "status"]
 LINE_ITEM_HEADERS = ["Invoice Number", "Description", "Quantity", "Unit Price", "Line Total"]
 
 
+def _load_service_account_info(raw_content: str, source_name: str) -> dict:
+    try:
+        content = raw_content.strip()
+        if content.startswith("'") and content.endswith("'"):
+            content = content[1:-1]
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"{source_name} is set but is not valid JSON. "
+            "In Railway, paste the full service account JSON object as the variable value. "
+            f"Details: {e}"
+        ) from e
+
+
 def _get_client():
-    # Prefer inline JSON content (set as env var on cloud deployments like Railway)
     if settings.google_service_account_json_content:
-        try:
-            content = settings.google_service_account_json_content.strip()
-            if content.startswith("'") and content.endswith("'"):
-                content = content[1:-1]
-            info = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                "GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT is set but is not valid JSON. "
-                "In Railway, paste the full service account JSON object as the variable value. "
-                f"Details: {e}"
-            )
+        info = _load_service_account_info(
+            settings.google_service_account_json_content,
+            "GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT",
+        )
         creds = Credentials.from_service_account_info(info, scopes=SCOPES)
         return gspread.authorize(creds)
 
-    # Fall back to file path (local dev with credentials/service_account.json)
     creds_path = settings.google_service_account_json
+    if creds_path.strip().startswith("{"):
+        info = _load_service_account_info(creds_path, "GOOGLE_SERVICE_ACCOUNT_JSON")
+        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        return gspread.authorize(creds)
+
     if not os.path.exists(creds_path):
         raise FileNotFoundError(
             f"Service account credentials not found. "
             f"For local dev: place the JSON at '{creds_path}'. "
             f"For Railway/cloud: set GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT to the full "
-            f"contents of the service account JSON file, because local credential files "
-            f"are not deployed with the backend."
+            f"contents of the service account JSON file, or paste the full JSON into "
+            f"GOOGLE_SERVICE_ACCOUNT_JSON instead of using a local file path."
         )
     creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
     return gspread.authorize(creds)
@@ -66,7 +83,6 @@ def _get_or_create_worksheet(sh, title: str, headers: list[str]) -> gspread.Work
 
 
 def _ensure_headers(ws: gspread.Worksheet, headers: list[str]) -> None:
-    """Write headers to row 1 only if the sheet is brand new (row 1 is empty)."""
     try:
         existing = ws.row_values(1)
     except Exception:
@@ -76,8 +92,21 @@ def _ensure_headers(ws: gspread.Worksheet, headers: list[str]) -> None:
         ws.insert_row(headers, index=1)
 
 
+def _normalized_headers(headers: list[str]) -> list[str]:
+    return [h.strip().lower().replace(" ", "_") for h in headers]
+
+
+def _first_empty_row(ws: gspread.Worksheet) -> int:
+    values = ws.get_all_values()
+    for idx, row in enumerate(values):
+        if idx == 0:
+            continue
+        if not row or not any(cell.strip() for cell in row):
+            return idx + 1
+    return len(values) + 1
+
+
 def _safe(val) -> str:
-    """Convert None / floats to plain strings so gspread never drops a cell."""
     if val is None:
         return ""
     return str(val)
@@ -87,28 +116,41 @@ def export_invoice_to_sheets(invoice: Invoice, file_url: str = ""):
     client = _get_client()
     sh = client.open_by_key(settings.google_sheet_id)
 
-    # ── Invoices sheet ──────────────────────────────────────────────────────────
     ws = _get_or_create_worksheet(sh, "Invoices", FLAT_HEADERS)
     _ensure_headers(ws, FLAT_HEADERS)
 
-    row = [
-        _safe(invoice.invoice_number),
-        _safe(invoice.vendor_name),
-        _safe(invoice.customer_name),
-        _safe(invoice.invoice_date),
-        _safe(invoice.due_date),
-        _safe(invoice.currency),
-        _safe(invoice.subtotal),
-        _safe(invoice.tax_amount),
-        _safe(invoice.total_amount),
-        invoice.status.replace("_", " ").title() if invoice.status else "",
-    ]
+    existing_headers = _normalized_headers(ws.row_values(1))
+    legacy_headers = _normalized_headers(LEGACY_FLAT_HEADERS)
+    status = invoice.status.replace("_", " ").title() if invoice.status else ""
+    next_row = _first_empty_row(ws)
 
-    # append_row always adds after the last populated row — no empty-row scan needed
-    ws.append_row(row, value_input_option="USER_ENTERED")
-    logger.info(f"Appended invoice {invoice.id} to Google Sheets 'Invoices' tab")
+    if existing_headers[:len(legacy_headers)] == legacy_headers:
+        row = [
+            _safe(invoice.vendor_name),
+            _safe(invoice.customer_name),
+            _safe(invoice.subtotal),
+            _safe(invoice.tax_amount),
+            _safe(invoice.total_amount),
+            status,
+        ]
+        ws.update(range_name=f"A{next_row}:F{next_row}", values=[row], value_input_option="USER_ENTERED")
+    else:
+        row = [
+            _safe(invoice.invoice_number),
+            _safe(invoice.vendor_name),
+            _safe(invoice.customer_name),
+            _safe(invoice.invoice_date),
+            _safe(invoice.due_date),
+            _safe(invoice.currency),
+            _safe(invoice.subtotal),
+            _safe(invoice.tax_amount),
+            _safe(invoice.total_amount),
+            status,
+        ]
+        ws.update(range_name=f"A{next_row}:J{next_row}", values=[row], value_input_option="USER_ENTERED")
 
-    # ── Line Items sheet (only in normalized mode) ───────────────────────────────
+    logger.info("Exported invoice %s to Google Sheets 'Invoices' tab row %s", invoice.id, next_row)
+
     if settings.sheets_mode == "normalized" and invoice.line_items_json:
         items_ws = _get_or_create_worksheet(sh, "Line Items", LINE_ITEM_HEADERS)
         _ensure_headers(items_ws, LINE_ITEM_HEADERS)
@@ -147,9 +189,20 @@ def check_sheets_connection() -> dict:
 
     client = _get_client()
     sh = client.open_by_key(settings.google_sheet_id)
+    try:
+        invoices_ws = sh.worksheet("Invoices")
+        invoices_headers = invoices_ws.row_values(1)
+        invoices_rows = len(invoices_ws.get_all_values())
+    except gspread.WorksheetNotFound:
+        invoices_headers = []
+        invoices_rows = 0
+
     return {
         "configured": True,
         "connected": True,
         "credential_source": credential_source,
         "spreadsheet_title": sh.title,
+        "worksheets": [ws.title for ws in sh.worksheets()],
+        "invoices_headers": invoices_headers,
+        "invoices_row_count": invoices_rows,
     }
