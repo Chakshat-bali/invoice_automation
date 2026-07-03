@@ -138,6 +138,7 @@ def process_invoice_background(invoice_id: str, file_path: str, inv_dir: str):
         invoice.total_amount = extracted.get("total_amount")
         invoice.payment_terms = extracted.get("payment_terms")
         invoice.line_items_json = json.dumps(extracted.get("line_items", []))
+        invoice.invoice_summary = extracted.get("invoice_summary")
         invoice.overall_confidence = result["overall_confidence"]
         invoice.field_confidence_json = json.dumps(result["field_confidence"])
         invoice.validation_status = result["validation_status"]

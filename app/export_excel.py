@@ -17,6 +17,50 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Invoice
 
+
+def _build_invoice_summary(inv: Invoice) -> str:
+    """
+    Builds a concise one-line description of what an invoice is about,
+    derived entirely from already-extracted fields — no extra LLM call.
+    """
+    parts = []
+
+    # Vendor → Customer direction
+    if inv.vendor_name and inv.customer_name:
+        parts.append(f"{inv.vendor_name} → {inv.customer_name}")
+    elif inv.vendor_name:
+        parts.append(f"From {inv.vendor_name}")
+    elif inv.customer_name:
+        parts.append(f"To {inv.customer_name}")
+
+    # What was purchased — use up to 2 line item descriptions
+    if inv.line_items_json:
+        try:
+            items = json.loads(inv.line_items_json)
+            descriptions = [
+                str(i.get("description", "")).strip()
+                for i in items
+                if i.get("description")
+            ]
+            if descriptions:
+                shown = descriptions[:2]
+                suffix = f" +{len(descriptions) - 2} more" if len(descriptions) > 2 else ""
+                parts.append(f"for {', '.join(shown)}{suffix}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Total amount
+    if inv.total_amount is not None:
+        currency = inv.currency or ""
+        parts.append(f"totalling {currency} {inv.total_amount:,.2f}".strip())
+
+    # Payment terms
+    if inv.payment_terms:
+        parts.append(f"({inv.payment_terms})")
+
+    return "; ".join(parts) if parts else "—"
+
+
 def export_invoices_to_excel(db: Session, invoice_ids: list[str] | None = None) -> str:
     query = db.query(Invoice)
     if invoice_ids:
@@ -38,9 +82,9 @@ def export_invoices_to_excel(db: Session, invoice_ids: list[str] | None = None) 
     
     # Define headers
     INV_HEADERS = [
-        "Invoice Number", "Invoice Date", "Due Date", 
-        "Vendor Name", "Customer Name", "Currency", "Subtotal", 
-        "Tax Amount", "Total Amount", "Status"
+        "Invoice Number", "Invoice Date", "Due Date",
+        "Vendor Name", "Customer Name", "Currency", "Subtotal",
+        "Tax Amount", "Total Amount", "Status", "Details"
     ]
     
     ITEM_HEADERS = [
@@ -64,13 +108,14 @@ def export_invoices_to_excel(db: Session, invoice_ids: list[str] | None = None) 
             inv.invoice_number,
             inv.invoice_date,
             inv.due_date,
-            inv.vendor_name, 
-            inv.customer_name, 
+            inv.vendor_name,
+            inv.customer_name,
             inv.currency,
-            inv.subtotal, 
-            inv.tax_amount, 
-            inv.total_amount, 
-            inv.status.replace("_", " ").title() if inv.status else ""
+            inv.subtotal,
+            inv.tax_amount,
+            inv.total_amount,
+            inv.status.replace("_", " ").title() if inv.status else "",
+            inv.invoice_summary or _build_invoice_summary(inv),
         ])
         
         # Apply currency format to subtotal, tax, total

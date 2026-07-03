@@ -43,6 +43,7 @@ Extract the following fields and return ONLY valid JSON, no markdown, no comment
   "line_items": [
     {"description": string, "quantity": number, "unit_price": number, "line_total": number}
   ],
+  "invoice_summary": string or null,
   "field_confidence": {
     "invoice_number": number (0-1),
     "invoice_date": number (0-1),
@@ -67,6 +68,7 @@ Extract the following fields and return ONLY valid JSON, no markdown, no comment
 - Normalize numbers by stripping currency symbols/commas.
 - confidence should reflect how certain you are the OCR text unambiguously supports that value (1.0 = explicit and clear, 0.5 = inferred/ambiguous, 0.0 = missing).
 - Never invent values that aren't grounded in the text.
+- invoice_summary must be a single sentence (max 20 words) describing what this invoice is for, e.g. "Web development and UI/UX services from TechSolutions to ABC Corp for INR 87,966."
 """
 
 
@@ -152,6 +154,7 @@ Extract the following fields and return ONLY valid JSON, no markdown, no comment
   "line_items": [
     {"description": string, "quantity": number, "unit_price": number, "line_total": number}
   ],
+  "invoice_summary": string or null,
   "field_confidence": {
     "invoice_number": number (0-1),
     "invoice_date": number (0-1),
@@ -176,6 +179,7 @@ Extract the following fields and return ONLY valid JSON, no markdown, no comment
 - Normalize numbers by stripping currency symbols/commas.
 - confidence should reflect how certain you are the visual data supports that value (1.0 = explicit and clear, 0.5 = inferred/ambiguous, 0.0 = missing).
 - Never invent values that aren't grounded in the visual document.
+- invoice_summary must be a single sentence (max 20 words) describing what this invoice is for, e.g. "Web development and UI/UX services from TechSolutions to ABC Corp for INR 87,966."
 """
 
 

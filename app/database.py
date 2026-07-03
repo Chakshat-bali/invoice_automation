@@ -51,6 +51,8 @@ class Invoice(Base):
     validation_status = Column(String, default="pending")  # passed | flagged | pending
     validation_notes = Column(Text, nullable=True)
     validation_ai_suggestions = Column(Text, nullable=True)
+    invoice_summary = Column(Text, nullable=True)  # LLM-generated one-line description
+
     is_duplicate = Column(Boolean, default=False)
     duplicate_of = Column(String, nullable=True)
 
