@@ -119,7 +119,7 @@ def process_invoice_background(invoice_id: str, file_path: str, inv_dir: str):
         if result['validation_notes']:
             logger.warning(f"Validation notes for {invoice_id}: {result['validation_notes']}")
 
-        invoice = db.query(Invoice).get(invoice_id)
+        invoice = db.get(Invoice, invoice_id)
         if not invoice:
             logger.error(f"Invoice {invoice_id} not found in background task")
             return
@@ -152,7 +152,7 @@ def process_invoice_background(invoice_id: str, file_path: str, inv_dir: str):
         logger.info(f"Background processing complete for ID: {invoice_id}")
     except Exception as e:
         logger.error(f"Error in background processing for {invoice_id}: {e}")
-        invoice = db.query(Invoice).get(invoice_id)
+        invoice = db.get(Invoice, invoice_id)
         if invoice:
             invoice.status = "error"
             invoice.validation_notes = str(e)
@@ -225,7 +225,7 @@ def list_invoices(status: str | None = None, vendor: str | None = None, db: Sess
 
 @app.get("/invoices/{invoice_id}")
 def get_invoice(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
     return _serialize_invoice(inv)
@@ -233,7 +233,7 @@ def get_invoice(invoice_id: str, db: Session = Depends(get_db)):
 
 @app.get("/invoices/{invoice_id}/review")
 def get_invoice_for_review(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
     data = _serialize_invoice(inv)
@@ -246,7 +246,7 @@ def get_invoice_for_review(invoice_id: str, db: Session = Depends(get_db)):
 
 @app.get("/invoices/{invoice_id}/file")
 def get_invoice_file(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv or not os.path.exists(inv.file_path):
         raise HTTPException(404, "File not found")
     return FileResponse(inv.file_path, filename=inv.original_filename)
@@ -260,7 +260,7 @@ def update_fields(invoice_id: str, req: FieldUpdateRequest, db: Session = Depend
     logger.info(f"Received update fields request for invoice ID: {invoice_id}")
     logger.info(f"Field updates requested: {req.field_updates}")
     
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         logger.error(f"Invoice not found with ID: {invoice_id}")
         raise HTTPException(404, "Invoice not found")
@@ -312,7 +312,7 @@ def update_fields(invoice_id: str, req: FieldUpdateRequest, db: Session = Depend
 
 @app.post("/invoices/{invoice_id}/approve")
 def approve_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
     if inv.validation_status == "flagged":
@@ -333,7 +333,7 @@ def approve_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(
 
 @app.post("/invoices/{invoice_id}/reject")
 def reject_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
     inv.status = "rejected"
@@ -346,7 +346,7 @@ def reject_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(g
 
 @app.get("/invoices/{invoice_id}/audit-log")
 def get_audit_log(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
     return [
@@ -380,7 +380,7 @@ def _run_exports(inv: Invoice) -> dict:
 
 @app.post("/invoices/{invoice_id}/export")
 def manual_export(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
     results = _run_exports(inv)
@@ -410,7 +410,7 @@ def get_sheets_link():
 @app.delete("/invoices/{invoice_id}")
 def delete_invoice(invoice_id: str, db: Session = Depends(get_db)):
     logger.info(f"Received delete request for invoice ID: {invoice_id}")
-    inv = db.query(Invoice).get(invoice_id)
+    inv = db.get(Invoice, invoice_id)
     if not inv:
         logger.error(f"Invoice not found with ID: {invoice_id}")
         raise HTTPException(404, "Invoice not found")
