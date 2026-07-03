@@ -13,8 +13,17 @@
     background: linear-gradient(135deg, var(--text-title), var(--accent));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     letter-spacing: -0.02em;
+}
+
+.hero-stack {
+    font-size: 16px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 16px;
+    opacity: 0.9;
+    letter-spacing: 0.02em;
 }
 
 .hero p {
