@@ -1,5 +1,5 @@
-// Base API URL - when served by FastAPI, it will be the same origin.
-export const API_URL = "";
+// Base API URL - allow override via env var for Vercel deployment
+export const API_URL = import.meta.env.VITE_API_URL || "";
 
 export interface Invoice {
     invoice_id: string;
