@@ -1,31 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { type Invoice, fetchInvoices, uploadInvoice, deleteInvoice, pollEmailInbox, fetchGoogleAuthStatus, disconnectGoogleAuth, fetchGoogleAuthUrl, type GoogleAuthStatus } from '../api';
+import { uploadInvoice, deleteInvoice, fetchInvoices, fetchGoogleAuthStatus, disconnectGoogleAuth, fetchGoogleAuthUrl, type GoogleAuthStatus, type Invoice } from '../api';
 import {
     UploadCloud,
-    Activity,
-    FileSpreadsheet,
-    Trash2,
-    Edit3,
-    Search,
     ChevronDown,
     BookOpen,
     Loader2,
     MailCheck,
     Link as LinkIcon,
     Link2Off,
-    Check
+    Check,
+    Search,
+    FileSpreadsheet,
+    Activity
 } from 'lucide-react';
 import './Dashboard.css';
-import { API_URL } from "../api";
 
 export default function Dashboard() {
     const navigate = useNavigate();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
-    const [statusFilter, setStatusFilter] = useState('');
-    const [vendorFilter, setVendorFilter] = useState('');
     const [isUploading, setIsUploading] = useState(false);
-    const [isPollingEmail, setIsPollingEmail] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
     const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null);
     const [processingComplete, setProcessingComplete] = useState(false);
@@ -46,11 +40,9 @@ export default function Dashboard() {
                         setProcessingInvoiceId(null);
                         setProcessingComplete(false);
                         alert(inv.validation_notes || "Please upload a valid invoice file");
-                        loadInvoices();
                     } else if (inv.status !== 'processing') {
                         // Mark complete but keep modal open so user can rename
                         setProcessingComplete(true);
-                        loadInvoices();
                     }
                 } catch (e) {
                     console.error("Polling error", e);
@@ -62,9 +54,6 @@ export default function Dashboard() {
 
     useEffect(() => {
         loadInvoices();
-    }, [statusFilter, vendorFilter]);
-
-    useEffect(() => {
         loadGoogleStatus();
     }, []);
 
@@ -74,6 +63,15 @@ export default function Dashboard() {
             setGoogleStatus(status);
         } catch (e) {
             console.error("Error loading google status", e);
+        }
+    }
+
+    async function loadInvoices() {
+        try {
+            const data = await fetchInvoices('', '');
+            setInvoices(data);
+        } catch (error) {
+            console.error('Failed to load invoices:', error);
         }
     }
 
@@ -98,22 +96,12 @@ export default function Dashboard() {
         }
     }
 
-    async function loadInvoices() {
-        try {
-            const data = await fetchInvoices(statusFilter, vendorFilter);
-            setInvoices(data);
-        } catch (error) {
-            console.error('Failed to load invoices:', error);
-        }
-    }
-
     async function handleFileSelect(file: File) {
         setIsUploading(true);
         try {
             const result = await uploadInvoice(file);
             setRenameValue(result.original_filename);
             setProcessingInvoiceId(result.invoice_id);
-            await loadInvoices();
         } catch (error) {
             alert('Upload failed: ' + (error as Error).message);
         } finally {
@@ -127,7 +115,6 @@ export default function Dashboard() {
         try {
             const { updateInvoice } = await import('../api');
             await updateInvoice(processingInvoiceId, { original_filename: renameValue });
-            await loadInvoices();
             setProcessingInvoiceId(null);
             setProcessingComplete(false);
         } catch (error) {
@@ -149,27 +136,9 @@ export default function Dashboard() {
         setProcessingComplete(false);
         try {
             await deleteInvoice(toCancel);
-            await loadInvoices();
             alert("Processing cancelled.");
         } catch (error) {
             console.error("Failed to cancel processing", error);
-        }
-    }
-
-    async function handlePollEmail() {
-        if (!googleStatus.connected) {
-            alert("Please connect your Google Gmail account first before syncing email invoices!");
-            return;
-        }
-        setIsPollingEmail(true);
-        try {
-            const res = await pollEmailInbox();
-            alert(`Gmail sync complete! Processed ${res.processed} new invoices.`);
-            await loadInvoices();
-        } catch (error) {
-            alert('Gmail sync failed: ' + (error as Error).message);
-        } finally {
-            setIsPollingEmail(false);
         }
     }
 
@@ -346,134 +315,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* List Section */}
-            <div className="list-section">
-                <div className="table-container">
-                    <div className="table-header-controls">
-                        <h2>Recent Invoices</h2>
-                        <div className="controls-group">
-                            <button
-                                onClick={handlePollEmail}
-                                disabled={isPollingEmail}
-                                className="btn-outline"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
-                            >
-                                {isPollingEmail ? <Loader2 size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <MailCheck size={18} />}
-                                Sync Email
-                            </button>
-                            <button
-                                onClick={() => {
-                                    window.open(`${API_URL}/export/excel`, "_blank");
-                                }}
-                                className="btn-primary"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
-                            >
-                                <FileSpreadsheet size={18} /> Export to Excel
-                            </button>
-
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                <Search size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
-                                <input
-                                    type="text"
-                                    className="text-input"
-                                    placeholder="Search vendor..."
-                                    value={vendorFilter}
-                                    onChange={(e) => setVendorFilter(e.target.value)}
-                                    style={{ paddingLeft: '36px' }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>File Name</th>
-                                    <th>Date Added</th>
-                                    <th>Vendor</th>
-                                    <th>Amount</th>
-                                    <th>
-                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            <select
-                                                value={statusFilter}
-                                                onChange={(e) => setStatusFilter(e.target.value)}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    fontWeight: 'bold',
-                                                    color: 'var(--text-secondary)',
-                                                    cursor: 'pointer',
-                                                    fontSize: '12px',
-                                                    padding: 0,
-                                                    outline: 'none',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.5px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            >
-                                                <option value="">Status</option>
-                                                <option value="pending_review">Pending</option>
-                                                <option value="approved">Approved</option>
-                                                <option value="rejected">Rejected</option>
-                                            </select>
-                                        </div>
-                                    </th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {invoices.length === 0 ? (
-                                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>No invoices found. Start by uploading one above!</td></tr>
-                                ) : (
-                                    invoices.map(inv => (
-                                        <tr key={inv.invoice_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/review/${inv.invoice_id}`)}>
-                                            <td style={{ fontWeight: 500 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span>{inv.original_filename}</span>
-                                                    {inv.is_duplicate && (
-                                                        <span className="badge rejected" style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'uppercase' }} title="Duplicate of another invoice">
-                                                            Duplicate
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td style={{ color: 'var(--text-secondary)' }}>{new Date(inv.created_at).toLocaleDateString()}</td>
-                                            <td>{inv.vendor_name || '-'}</td>
-                                            <td style={{ fontWeight: 600 }}>{inv.total_amount ? `$${inv.total_amount.toFixed(2)}` : '-'}</td>
-                                            <td>
-                                                <span className={`badge ${inv.status}`}>
-                                                    {inv.status.replace('_', ' ')}
-                                                </span>
-                                            </td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <button className="action-btn" title="Edit/Review" onClick={(e) => { e.stopPropagation(); navigate(`/review/${inv.invoice_id}`); }}>
-                                                    <Edit3 size={16} />
-                                                </button>
-                                                <button
-                                                    className="action-btn"
-                                                    title="Delete"
-                                                    style={{ color: 'var(--danger)' }}
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        if (window.confirm('Delete this invoice?')) {
-                                                            await deleteInvoice(inv.invoice_id);
-                                                            loadInvoices();
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
             {/* Modal Overlay for Uploading & Processing */}
             {(isUploading || processingInvoiceId) && (
                 <div className="modal-overlay">
@@ -503,7 +344,6 @@ export default function Dashboard() {
                                         onChange={e => setRenameValue(e.target.value)}
                                         autoFocus
                                     />
-                                    <button type="submit" className="btn-primary" style={{ padding: '10px' }}>Save Name</button>
                                     {processingComplete ? (
                                         <button
                                             type="button"
@@ -523,6 +363,7 @@ export default function Dashboard() {
                                             Cancel Processing
                                         </button>
                                     )}
+                                    <button type="submit" className="btn-primary" style={{ padding: '10px' }}>Save Name</button>
                                 </form>
                             </>
                         )}

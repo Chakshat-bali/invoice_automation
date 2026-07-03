@@ -1,19 +1,10 @@
-import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { fetchSheetsLink } from './api';
-import { Layers, FileSpreadsheet, ExternalLink } from 'lucide-react';
+import { Home, LayoutDashboard } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
+import InvoiceDashboard from './pages/InvoiceDashboard';
 import Review from './pages/Review';
 
 function App() {
-  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchSheetsLink()
-      .then(res => setSheetUrl(res.url))
-      .catch(err => console.error("Error getting sheet link", err));
-  }, []);
-
   return (
     <BrowserRouter>
       <header style={{
@@ -29,39 +20,36 @@ function App() {
         zIndex: 100
       }}>
         <Link to="/" style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Layers size={22} style={{ color: 'var(--accent)' }} />
+          <Home size={22} style={{ color: 'var(--accent)' }} />
         </Link>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-          {sheetUrl && (
-            <a
-              href={sheetUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                textDecoration: 'none',
-                color: 'var(--accent)',
-                fontWeight: 600,
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'var(--accent-light)',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                transition: 'background 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(79, 70, 229, 0.15)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'var(--accent-light)'}
-            >
-              <FileSpreadsheet size={16} />
-              <span>Live Google Sheet</span>
-              <ExternalLink size={12} />
-            </a>
-          )}
+          <Link
+            to="/invoices"
+            title="Invoice Dashboard"
+            style={{
+              textDecoration: 'none',
+              color: 'var(--accent)',
+              fontWeight: 600,
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'var(--accent-light)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(79, 70, 229, 0.15)')}
+            onMouseOut={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
+          >
+            <LayoutDashboard size={16} />
+            <span>Dashboard</span>
+          </Link>
         </div>
       </header>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/invoices" element={<InvoiceDashboard />} />
         <Route path="/review/:id" element={<Review />} />
       </Routes>
     </BrowserRouter>

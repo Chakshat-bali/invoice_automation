@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { type Invoice, fetchInvoice, updateInvoice, approveInvoice, API_URL } from '../api';
+import { type Invoice, fetchInvoice, updateInvoice, approveInvoice, fetchSheetsLink, API_URL } from '../api';
 import { 
     FileText, 
     Building2, 
@@ -10,7 +10,10 @@ import {
     Sparkles, 
     ArrowLeft, 
     Save, 
-    CheckCircle
+    CheckCircle,
+    FileSpreadsheet,
+    ChevronDown,
+    ExternalLink
 } from 'lucide-react';
 import './Review.css';
 
@@ -24,10 +27,27 @@ export default function Review() {
     const [isSaving, setIsSaving] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
+    const [showExportDropdown, setShowExportDropdown] = useState(false);
+    const exportDropdownRef = useRef<HTMLDivElement>(null);
+    const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (id) loadInvoice(id);
+        fetchSheetsLink()
+            .then(res => setSheetsUrl(res.url))
+            .catch(err => console.error("Error getting sheet link", err));
     }, [id]);
+
+    // Close export dropdown on outside click
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+                setShowExportDropdown(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         if (!invoice?.invoice_id) return;
@@ -115,10 +135,8 @@ export default function Review() {
         if (!invoice) return;
         setIsApproving(true);
         try {
-            const approved = await approveInvoice(invoice.invoice_id);
-            setInvoice(approved);
-            alert('Invoice approved successfully');
-            navigate('/');
+            const result = await approveInvoice(invoice.invoice_id);
+            setInvoice(result.invoice);
         } catch (error) {
             alert((error as Error).message);
         } finally {
@@ -343,7 +361,7 @@ export default function Review() {
                             >
                                 <Save size={16} /> {isSaving ? 'Saving...' : 'Save Changes'}
                             </button>
-                            {invoice.status !== 'approved' && (
+                            {invoice.status !== 'approved' ? (
                                 <button 
                                     className="btn-approve" 
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
@@ -353,6 +371,78 @@ export default function Review() {
                                 >
                                     <CheckCircle size={16} /> {isApproving ? 'Approving...' : 'Approve & Finalize'}
                                 </button>
+                            ) : (
+                                <div style={{ position: 'relative' }} ref={exportDropdownRef}>
+                                    <button 
+                                        className="btn-approve" 
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }} 
+                                        onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                    >
+                                        <FileSpreadsheet size={16} /> View in Sheets <ChevronDown size={14} style={{ marginLeft: '2px', transform: showExportDropdown ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
+                                    </button>
+                                    {showExportDropdown && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: 'calc(100% + 8px)',
+                                            top: 'auto',
+                                            right: 0,
+                                            background: 'white',
+                                            border: '1px solid var(--border-light)',
+                                            borderRadius: '8px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                            minWidth: '200px',
+                                            zIndex: 100,
+                                            overflow: 'hidden'
+                                        }}>
+                                            {sheetsUrl && (
+                                                <a
+                                                    href={sheetsUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        padding: '12px 16px',
+                                                        textDecoration: 'none',
+                                                        color: 'var(--text-primary)',
+                                                        borderBottom: '1px solid var(--border-light)',
+                                                        transition: 'background 0.2s',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                    onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                                                >
+                                                    <FileSpreadsheet size={16} style={{ color: 'var(--accent)' }} />
+                                                    <span style={{ fontSize: '14px', fontWeight: 500 }}>View in Google Sheets</span>
+                                                    <ExternalLink size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+                                                </a>
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    window.open(`${API_URL}/export/excel`, '_blank');
+                                                    setShowExportDropdown(false);
+                                                }}
+                                                style={{
+                                                    all: 'unset',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '10px',
+                                                    padding: '12px 16px',
+                                                    width: '100%',
+                                                    boxSizing: 'border-box',
+                                                    cursor: 'pointer',
+                                                    transition: 'background 0.2s'
+                                                }}
+                                                onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <FileSpreadsheet size={16} style={{ color: 'var(--success)' }} />
+                                                <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>Export to Excel</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>

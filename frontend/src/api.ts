@@ -76,7 +76,7 @@ export async function updateInvoice(id: string, updates: Partial<Invoice>): Prom
     return await response.json();
 }
 
-export async function approveInvoice(id: string): Promise<Invoice> {
+export async function approveInvoice(id: string): Promise<{ invoice: Invoice; export_results: Record<string, string | null> }> {
     const response = await fetch(`${API_URL}/invoices/${id}/approve`, {
         method: 'POST',
         headers: {
