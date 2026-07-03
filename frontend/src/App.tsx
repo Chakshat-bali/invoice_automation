@@ -16,10 +16,10 @@ function App() {
 
   return (
     <BrowserRouter>
-      <header style={{ 
-        padding: '20px 40px', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <header style={{
+        padding: '20px 40px',
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         background: 'rgba(255, 255, 255, 0.6)',
         backdropFilter: 'blur(12px)',
@@ -30,24 +30,20 @@ function App() {
       }}>
         <Link to="/" style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Layers size={22} style={{ color: 'var(--accent)' }} />
-          <span>Nexus</span>
         </Link>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-          <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', transition: 'color 0.2s' }}>
-            Dashboard
-          </Link>
           {sheetUrl && (
-            <a 
-              href={sheetUrl} 
-              target="_blank" 
-              rel="noreferrer" 
-              style={{ 
-                textDecoration: 'none', 
-                color: 'var(--accent)', 
-                fontWeight: 600, 
-                fontSize: '14px', 
-                display: 'flex', 
-                alignItems: 'center', 
+            <a
+              href={sheetUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                textDecoration: 'none',
+                color: 'var(--accent)',
+                fontWeight: 600,
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
                 gap: '6px',
                 background: 'var(--accent-light)',
                 padding: '6px 12px',
