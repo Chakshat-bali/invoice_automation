@@ -12,8 +12,6 @@ numpy==1.26.4
 Pillow==10.4.0
 
 # OCR
-paddleocr==2.9.1
-paddlepaddle==2.6.2
 rapidocr-onnxruntime==1.3.24   # lightweight fallback engine
 
 # LLM extraction (Groq - free tier)
