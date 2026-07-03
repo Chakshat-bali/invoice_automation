@@ -30,6 +30,14 @@ export default function Review() {
     const [showExportDropdown, setShowExportDropdown] = useState(false);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
     const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+    const [showApprovedBanner, setShowApprovedBanner] = useState(false);
+
+    // Auto-dismiss the approval banner after 4 seconds
+    useEffect(() => {
+        if (!showApprovedBanner) return;
+        const t = setTimeout(() => setShowApprovedBanner(false), 4000);
+        return () => clearTimeout(t);
+    }, [showApprovedBanner]);
 
     useEffect(() => {
         if (id) loadInvoice(id);
@@ -137,6 +145,9 @@ export default function Review() {
         try {
             const result = await approveInvoice(invoice.invoice_id);
             setInvoice(result.invoice);
+            setActiveTab('entities');
+            // Show a clean approval toast instead of a blocking alert
+            setShowApprovedBanner(true);
         } catch (error) {
             alert((error as Error).message);
         } finally {
@@ -158,6 +169,34 @@ export default function Review() {
 
     return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Approval success banner */}
+            {showApprovedBanner && (
+                <div style={{
+                    position: 'fixed',
+                    top: '80px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 999,
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: 'white',
+                    padding: '14px 28px',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(16,185,129,0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontWeight: 600,
+                    fontSize: '15px',
+                    animation: 'fadeUp 0.3s ease-out',
+                }}>
+                    <CheckCircle size={20} />
+                    Invoice approved and synced to Google Sheets!
+                    <button
+                        onClick={() => setShowApprovedBanner(false)}
+                        style={{ all: 'unset', cursor: 'pointer', marginLeft: '8px', opacity: 0.8, fontSize: '18px', lineHeight: 1 }}
+                    >×</button>
+                </div>
+            )}
             <div style={{ padding: '16px 32px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
