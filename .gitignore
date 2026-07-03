@@ -1,0 +1,10 @@
+venv/
+node_modules/
+.env
+credentials/
+storage/
+ngrok.log
+__pycache__/
+*.pyc
+.DS_Store
+frontend/dist/
