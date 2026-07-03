@@ -14,7 +14,7 @@ from app.audit import log_change
 from app.config import settings
 from app.database import Invoice, GoogleOAuthToken, gen_id, get_db, init_db
 from app.export_excel import export_invoices_to_excel
-from app.export_sheets import export_invoice_to_sheets
+from app.export_sheets import check_sheets_connection, export_invoice_to_sheets
 from app.export_webhook import export_invoice_to_webhook
 from app.pipeline import run_pipeline
 from app.schemas import ApproveRequest, FieldUpdateRequest
@@ -365,14 +365,20 @@ def _run_exports(inv: Invoice) -> dict:
         if settings.google_sheet_id:
             export_invoice_to_sheets(inv, file_url)
             results["sheets"] = "success"
+        else:
+            results["sheets"] = "skipped: GOOGLE_SHEET_ID is not configured"
     except Exception as e:  # noqa: BLE001
+        logger.exception("Google Sheets export failed for invoice %s", inv.id)
         results["sheets"] = f"error: {e}"
 
     try:
         if settings.export_webhook_url:
             export_invoice_to_webhook(inv)
             results["webhook"] = "success"
+        else:
+            results["webhook"] = "skipped: EXPORT_WEBHOOK_URL is not configured"
     except Exception as e:  # noqa: BLE001
+        logger.exception("Webhook export failed for invoice %s", inv.id)
         results["webhook"] = f"error: {e}"
 
     return results
@@ -404,6 +410,24 @@ def get_sheets_link():
     if not settings.google_sheet_id:
         return {"url": None}
     return {"url": f"https://docs.google.com/spreadsheets/d/{settings.google_sheet_id}"}
+
+
+@app.get("/export/sheets/status")
+def get_sheets_status():
+    try:
+        return check_sheets_connection()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("Google Sheets status check failed")
+        return {
+            "configured": bool(settings.google_sheet_id),
+            "connected": False,
+            "credential_source": (
+                "GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT"
+                if settings.google_service_account_json_content
+                else "GOOGLE_SERVICE_ACCOUNT_JSON"
+            ),
+            "message": str(e),
+        }
 
 
 

@@ -31,6 +31,10 @@ export default function Review() {
     const exportDropdownRef = useRef<HTMLDivElement>(null);
     const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
     const [showApprovedBanner, setShowApprovedBanner] = useState(false);
+    const [approvalBanner, setApprovalBanner] = useState<{ type: 'success' | 'warning'; message: string }>({
+        type: 'success',
+        message: 'Invoice approved and synced to Google Sheets!'
+    });
 
     // Auto-dismiss the approval banner after 4 seconds
     useEffect(() => {
@@ -146,7 +150,18 @@ export default function Review() {
             const result = await approveInvoice(invoice.invoice_id);
             setInvoice(result.invoice);
             setActiveTab('entities');
-            // Show a clean approval toast instead of a blocking alert
+            const sheetsResult = result.export_results?.sheets;
+            if (sheetsResult === 'success') {
+                setApprovalBanner({
+                    type: 'success',
+                    message: 'Invoice approved and synced to Google Sheets!'
+                });
+            } else {
+                setApprovalBanner({
+                    type: 'warning',
+                    message: `Invoice approved, but Google Sheets export did not complete: ${sheetsResult || 'not configured'}`
+                });
+            }
             setShowApprovedBanner(true);
         } catch (error) {
             alert((error as Error).message);
@@ -177,11 +192,11 @@ export default function Review() {
                     left: '50%',
                     transform: 'translateX(-50%)',
                     zIndex: 999,
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    background: approvalBanner.type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
                     color: 'white',
                     padding: '14px 28px',
                     borderRadius: '12px',
-                    boxShadow: '0 8px 24px rgba(16,185,129,0.35)',
+                    boxShadow: approvalBanner.type === 'success' ? '0 8px 24px rgba(16,185,129,0.35)' : '0 8px 24px rgba(245,158,11,0.35)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
@@ -189,8 +204,8 @@ export default function Review() {
                     fontSize: '15px',
                     animation: 'fadeUp 0.3s ease-out',
                 }}>
-                    <CheckCircle size={20} />
-                    Invoice approved and synced to Google Sheets!
+                    {approvalBanner.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+                    {approvalBanner.message}
                     <button
                         onClick={() => setShowApprovedBanner(false)}
                         style={{ all: 'unset', cursor: 'pointer', marginLeft: '8px', opacity: 0.8, fontSize: '18px', lineHeight: 1 }}

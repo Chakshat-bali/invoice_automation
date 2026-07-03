@@ -30,10 +30,14 @@ def _get_client():
     # Prefer inline JSON content (set as env var on cloud deployments like Railway)
     if settings.google_service_account_json_content:
         try:
-            info = json.loads(settings.google_service_account_json_content)
+            content = settings.google_service_account_json_content.strip()
+            if content.startswith("'") and content.endswith("'"):
+                content = content[1:-1]
+            info = json.loads(content)
         except json.JSONDecodeError as e:
             raise ValueError(
                 "GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT is set but is not valid JSON. "
+                "In Railway, paste the full service account JSON object as the variable value. "
                 f"Details: {e}"
             )
         creds = Credentials.from_service_account_info(info, scopes=SCOPES)
@@ -45,8 +49,9 @@ def _get_client():
         raise FileNotFoundError(
             f"Service account credentials not found. "
             f"For local dev: place the JSON at '{creds_path}'. "
-            f"For Railway/cloud: set the GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT env var "
-            f"to the full contents of the service account JSON file."
+            f"For Railway/cloud: set GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT to the full "
+            f"contents of the service account JSON file, because local credential files "
+            f"are not deployed with the backend."
         )
     creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
     return gspread.authorize(creds)
@@ -123,3 +128,28 @@ def export_invoice_to_sheets(invoice: Invoice, file_url: str = ""):
             ], value_input_option="USER_ENTERED")
 
     return True
+
+
+def check_sheets_connection() -> dict:
+    if not settings.google_sheet_id:
+        return {
+            "configured": False,
+            "connected": False,
+            "credential_source": None,
+            "message": "GOOGLE_SHEET_ID is not configured",
+        }
+
+    credential_source = (
+        "GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT"
+        if settings.google_service_account_json_content
+        else "GOOGLE_SERVICE_ACCOUNT_JSON"
+    )
+
+    client = _get_client()
+    sh = client.open_by_key(settings.google_sheet_id)
+    return {
+        "configured": True,
+        "connected": True,
+        "credential_source": credential_source,
+        "spreadsheet_title": sh.title,
+    }
