@@ -1,17 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { uploadInvoice, deleteInvoice, fetchInvoices, fetchGoogleAuthStatus, disconnectGoogleAuth, fetchGoogleAuthUrl, type GoogleAuthStatus, type Invoice } from '../api';
+import { uploadInvoice, deleteInvoice, fetchInvoices, type Invoice } from '../api';
 import {
     UploadCloud,
     ChevronDown,
     BookOpen,
     Loader2,
-    MailCheck,
-    Link as LinkIcon,
-    Link2Off,
-    Check,
-    Search,
-    FileSpreadsheet,
     Activity
 } from 'lucide-react';
 import './Dashboard.css';
@@ -25,8 +19,6 @@ export default function Dashboard() {
     const [processingComplete, setProcessingComplete] = useState(false);
     const [renameValue, setRenameValue] = useState('');
     const [showGuide, setShowGuide] = useState(true);
-    const [googleStatus, setGoogleStatus] = useState<GoogleAuthStatus>({ connected: false, email: null });
-    const [showConnectModal, setShowConnectModal] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -54,17 +46,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         loadInvoices();
-        loadGoogleStatus();
     }, []);
-
-    async function loadGoogleStatus() {
-        try {
-            const status = await fetchGoogleAuthStatus();
-            setGoogleStatus(status);
-        } catch (e) {
-            console.error("Error loading google status", e);
-        }
-    }
 
     async function loadInvoices() {
         try {
@@ -72,27 +54,6 @@ export default function Dashboard() {
             setInvoices(data);
         } catch (error) {
             console.error('Failed to load invoices:', error);
-        }
-    }
-
-    async function handleConnectGoogle() {
-        try {
-            const { url } = await fetchGoogleAuthUrl();
-            window.location.href = url;
-        } catch (e) {
-            alert("Failed to initiate Google OAuth: " + (e as Error).message);
-        }
-    }
-
-    async function handleDisconnectGoogle() {
-        if (window.confirm("Are you sure you want to disconnect your Google account?")) {
-            try {
-                await disconnectGoogleAuth();
-                await loadGoogleStatus();
-                alert("Disconnected successfully!");
-            } catch (e) {
-                alert("Failed to disconnect: " + (e as Error).message);
-            }
         }
     }
 
@@ -185,64 +146,6 @@ export default function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Gmail OAuth connection status */}
-                            <div style={{
-                                marginTop: '24px',
-                                paddingTop: '20px',
-                                borderTop: '1px solid var(--border-light)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                gap: '16px'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <MailCheck className={googleStatus.connected ? "guide-icon-blue" : ""} size={20} style={{ color: googleStatus.connected ? 'var(--success)' : 'var(--text-secondary)' }} />
-                                    <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                                        {googleStatus.connected ? (
-                                            <span style={{ color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                                <Check size={16} /> Connected: {googleStatus.email}
-                                            </span>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-secondary)' }}>Gmail: Not Connected</span>
-                                        )}
-                                    </span>
-                                </div>
-                                <div>
-                                    {googleStatus.connected ? (
-                                        <button
-                                            onClick={handleDisconnectGoogle}
-                                            className="btn-outline"
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                padding: '8px 16px',
-                                                borderColor: 'var(--danger-light)',
-                                                color: 'var(--danger)'
-                                            }}
-                                            onMouseOver={(e) => e.currentTarget.style.background = 'var(--danger-light)'}
-                                            onMouseOut={(e) => e.currentTarget.style.background = 'white'}
-                                        >
-                                            <Link2Off size={16} /> Disconnect Account
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => setShowConnectModal(true)}
-                                            className="btn-primary"
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                padding: '8px 16px',
-                                                fontSize: '14px'
-                                            }}
-                                        >
-                                            <LinkIcon size={16} /> Connect Gmail Account
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
                         </>
                     )}
                 </div>
@@ -367,102 +270,6 @@ export default function Dashboard() {
                                 </form>
                             </>
                         )}
-                    </div>
-                </div>
-            )}
-
-            {/* Modal Overlay for Gmail Integration Explanation */}
-            {showConnectModal && (
-                <div className="modal-overlay" style={{ zIndex: 1000 }}>
-                    <div className="modal-content" style={{ maxWidth: '500px', width: '90%', textAlign: 'left', padding: '32px' }}>
-                        <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-title)', marginBottom: '12px' }}>
-                            Connect Gmail Inbox
-                        </h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '24px', lineHeight: 1.5 }}>
-                            Enable fully automated background ingestion for your business invoices.
-                        </p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                <div style={{
-                                    background: 'rgba(59, 130, 246, 0.1)',
-                                    color: 'var(--accent)',
-                                    padding: '10px',
-                                    borderRadius: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <Search size={20} />
-                                </div>
-                                <div>
-                                    <h4 style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-title)', marginBottom: '4px' }}>Secure Inbox Monitoring</h4>
-                                    <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                        Sits securely in your mail looking specifically for unread invoice attachments.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                <div style={{
-                                    background: 'rgba(59, 130, 246, 0.1)',
-                                    color: 'var(--accent)',
-                                    padding: '10px',
-                                    borderRadius: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <Activity size={20} />
-                                </div>
-                                <div>
-                                    <h4 style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-title)', marginBottom: '4px' }}>Automatic AI Workflows</h4>
-                                    <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                        Once a matching invoice is detected, the OCR extraction and validation workflow runs automatically.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                <div style={{
-                                    background: 'rgba(59, 130, 246, 0.1)',
-                                    color: 'var(--accent)',
-                                    padding: '10px',
-                                    borderRadius: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <FileSpreadsheet size={20} />
-                                </div>
-                                <div>
-                                    <h4 style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-title)', marginBottom: '4px' }}>Instant Spreadsheet Export</h4>
-                                    <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                        Automatically parses all data and syncs details directly to Excel and Google Sheets.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setShowConnectModal(false)}
-                                className="btn-outline"
-                                style={{ padding: '10px 20px', minWidth: '100px' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setShowConnectModal(false);
-                                    handleConnectGoogle();
-                                }}
-                                className="btn-primary"
-                                style={{ padding: '10px 24px', minWidth: '150px' }}
-                            >
-                                Authorize & Connect
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}
