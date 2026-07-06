@@ -21,25 +21,46 @@ function App() {
   return (
     <BrowserRouter>
       <header style={{
-        padding: '20px 40px',
-        display: 'flex',
-        justifyContent: 'space-between',
+        padding: '16px 40px',
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
-        background: 'rgba(255, 255, 255, 0.6)',
+        background: 'rgba(255, 255, 255, 0.9)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border-light)',
         position: 'sticky',
         top: 0,
         zIndex: 100
       }}>
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Home size={22} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-title)', lineHeight: '1.2' }}>AI Invoice Automation</span>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '2px' }}>Python FastAPI &nbsp;·&nbsp; OCR &nbsp;·&nbsp; Multimodal AI</span>
-          </div>
-        </Link>
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+        <div style={{ justifySelf: 'start' }}>
+          <Link to="/" style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <Home size={22} style={{ color: 'var(--accent)' }} />
+          </Link>
+        </div>
+        <div style={{ justifySelf: 'center', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <h1 style={{
+            fontSize: '42px',
+            fontWeight: 800,
+            background: 'linear-gradient(135deg, var(--text-title), var(--accent))',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            margin: 0,
+            letterSpacing: '-0.02em',
+            lineHeight: '1.1'
+          }}>
+            AI Invoice Automation
+          </h1>
+          <p style={{
+            fontSize: '16px',
+            color: 'var(--accent)',
+            fontWeight: 800,
+            margin: '8px 0 0',
+            letterSpacing: '0.02em'
+          }}>
+            Python FastAPI &nbsp;·&nbsp; OCR &nbsp;·&nbsp; Multimodal AI
+          </p>
+        </div>
+        <div style={{ justifySelf: 'end', display: 'flex', gap: '24px', alignItems: 'center' }}>
           <Link
             to="/invoices"
             title="Invoice Dashboard"

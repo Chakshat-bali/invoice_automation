@@ -1,7 +1,7 @@
 /* Dashboard Layout & Animations */
 .hero {
     text-align: center;
-    padding: 40px 20px 32px;
+    padding: 32px 20px 24px;
     max-width: 800px;
     margin: 0 auto;
     animation: fadeUp 0.8s ease-out;
@@ -28,7 +28,8 @@
 
 .hero p {
     font-size: 18px;
-    color: var(--text-secondary);
+    color: var(--text-title);
+    font-weight: 500;
     line-height: 1.6;
 }
 
