@@ -12,7 +12,6 @@ import {
     ChevronDown,
     ExternalLink,
 } from 'lucide-react';
-import { API_URL } from '../api';
 import './Dashboard.css';
 
 export default function InvoiceDashboard() {

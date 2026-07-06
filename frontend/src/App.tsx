@@ -4,7 +4,7 @@ import { Home, LayoutDashboard } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import InvoiceDashboard from './pages/InvoiceDashboard';
 import Review from './pages/Review';
-import { API_URL, getSessionId } from './api';
+import { API_URL } from './api';
 
 function App() {
   useEffect(() => {

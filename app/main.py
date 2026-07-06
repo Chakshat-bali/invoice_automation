@@ -193,10 +193,7 @@ def cleanup_expired_sessions_task():
         db.close()
 
 
-@app.post("/session/end")
-@app.post("/session/{session_id}/end")
-def end_session(session_id: str | None = None, db: Session = Depends(get_db), current_session_id: str = Depends(get_session_id)):
-    sid = session_id or current_session_id
+def end_session_common(sid: str, db: Session):
     if not sid or sid == "default":
         return {"status": "ignored"}
     
@@ -217,6 +214,16 @@ def end_session(session_id: str | None = None, db: Session = Depends(get_db), cu
     
     db.commit()
     return {"status": "success", "session_id": sid}
+
+
+@app.post("/session/end")
+def end_session_header(db: Session = Depends(get_db), current_session_id: str = Depends(get_session_id)):
+    return end_session_common(current_session_id, db)
+
+
+@app.post("/session/{session_id}/end")
+def end_session_path(session_id: str, db: Session = Depends(get_db)):
+    return end_session_common(session_id, db)
 
 
 @app.post("/invoices/upload")
