@@ -150,6 +150,10 @@ export default function Review() {
 
     const handleApprove = async () => {
         if (!invoice) return;
+        if (hasError) {
+            alert("Please resolve the validation error(s) before approving.");
+            return;
+        }
         setIsApproving(true);
         try {
             const result = await approveInvoice(invoice.invoice_id);
@@ -423,10 +427,16 @@ export default function Review() {
                             {invoice.status !== 'approved' ? (
                                 <button 
                                     className="btn-approve" 
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px',
+                                        opacity: hasError ? 0.65 : 1,
+                                        cursor: hasError ? 'not-allowed' : 'pointer'
+                                    }} 
                                     onClick={handleApprove} 
-                                    disabled={isApproving || hasError}
-                                    title={hasError ? 'Cannot approve an invoice with validation errors' : ''}
+                                    disabled={isApproving}
+                                    title={hasError ? 'Please resolve the validation error(s) before approving' : ''}
                                 >
                                     <CheckCircle size={16} /> {isApproving ? 'Approving...' : 'Approve & Finalize'}
                                 </button>
