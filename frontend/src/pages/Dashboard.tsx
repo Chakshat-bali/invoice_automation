@@ -111,8 +111,6 @@ export default function Dashboard() {
     return (
         <div>
             <div className="hero">
-                <h1>AI Invoice Automation</h1>
-                <p className="hero-stack"><strong>Powered by Python FastAPI &nbsp;·&nbsp; OCR &nbsp;·&nbsp; Multimodal AI</strong></p>
                 <p>Upload your invoices to our AI extraction engine to automatically digitize vendor details, line items, and totals in real-time. Review the results below.</p>
             </div>
 

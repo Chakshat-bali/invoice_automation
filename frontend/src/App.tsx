@@ -32,8 +32,12 @@ function App() {
         top: 0,
         zIndex: 100
       }}>
-        <Link to="/" style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Home size={22} style={{ color: 'var(--accent)' }} />
+        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Home size={22} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-title)', lineHeight: '1.2' }}>AI Invoice Automation</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '2px' }}>Python FastAPI &nbsp;·&nbsp; OCR &nbsp;·&nbsp; Multimodal AI</span>
+          </div>
         </Link>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
           <Link
