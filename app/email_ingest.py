@@ -23,8 +23,8 @@ from app.pipeline import run_pipeline
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".bmp"}
 
 
-def get_gmail_credentials(db: Session):
-    token_entry = db.query(GoogleOAuthToken).first()
+def get_gmail_credentials(db: Session, session_id: str = "default"):
+    token_entry = db.query(GoogleOAuthToken).filter(GoogleOAuthToken.session_id == session_id).first()
     if not token_entry:
         return None
         
@@ -53,8 +53,8 @@ def get_gmail_credentials(db: Session):
     return creds
 
 
-def poll_inbox(db: Session) -> list[str]:
-    creds = get_gmail_credentials(db)
+def poll_inbox(db: Session, session_id: str = "default") -> list[str]:
+    creds = get_gmail_credentials(db, session_id)
     if not creds:
         print("Google OAuth is not connected or credentials expired.")
         return []
@@ -130,6 +130,7 @@ def poll_inbox(db: Session) -> list[str]:
                 
                 invoice = Invoice(
                     id=invoice_id,
+                    session_id=session_id,
                     original_filename=filename,
                     file_path=saved_path,
                     file_hash=file_hash,

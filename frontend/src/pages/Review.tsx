@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { type Invoice, fetchInvoice, updateInvoice, approveInvoice, fetchSheetsLink, API_URL } from '../api';
+import { type Invoice, fetchInvoice, updateInvoice, approveInvoice, fetchSheetsLink, API_URL, getSessionId, getExcelExportUrl } from '../api';
 import { 
     FileText, 
     Building2, 
@@ -23,7 +23,7 @@ export default function Review() {
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [formData, setFormData] = useState<any>({});
     const [lineItems, setLineItems] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState('details');
+    const [activeTab, setActiveTab] = useState('entities');
     const [isSaving, setIsSaving] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -65,7 +65,12 @@ export default function Review() {
         if (!invoice?.invoice_id) return;
         let currentObjectUrl = "";
         const url = `${API_URL}/invoices/${invoice.invoice_id}/file`;
-        fetch(url, { headers: { 'ngrok-skip-browser-warning': 'true' } })
+        fetch(url, { 
+            headers: { 
+                'ngrok-skip-browser-warning': 'true',
+                'X-Session-ID': getSessionId()
+            } 
+        })
             .then(res => res.blob())
             .then(blob => {
                 currentObjectUrl = URL.createObjectURL(blob);
@@ -174,7 +179,7 @@ export default function Review() {
         return <div style={{ padding: '40px', textAlign: 'center' }}>Loading invoice...</div>;
     }
 
-    const fileUrl = `${API_URL}/invoices/${invoice.invoice_id}/file`;
+    const fileUrl = `${API_URL}/invoices/${invoice.invoice_id}/file?session_id=${getSessionId()}`;
     const displayUrl = blobUrl || fileUrl;
     const isPdf = invoice.original_filename?.toLowerCase().endsWith('.pdf');
 
@@ -474,7 +479,7 @@ export default function Review() {
                                             )}
                                             <button
                                                 onClick={() => {
-                                                    window.open(`${API_URL}/export/excel`, '_blank');
+                                                    window.open(getExcelExportUrl(), '_blank');
                                                     setShowExportDropdown(false);
                                                 }}
                                                 style={{

@@ -1,6 +1,17 @@
 // Base API URL - allow override via env var for Vercel deployment
 export const API_URL = import.meta.env.VITE_API_URL || "";
 
+export function getSessionId(): string {
+    let sid = sessionStorage.getItem('invoice_session_id');
+    if (!sid) {
+        sid = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+            ? crypto.randomUUID() 
+            : Math.random().toString(36).substring(2) + Date.now().toString(36);
+        sessionStorage.setItem('invoice_session_id', sid);
+    }
+    return sid;
+}
+
 export interface Invoice {
     invoice_id: string;
     original_filename: string;
@@ -19,24 +30,34 @@ export async function fetchInvoices(status?: string, vendor?: string): Promise<I
     let url = `${API_URL}/invoices`;
     if (params.toString()) url += `?${params.toString()}`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        headers: {
+            'X-Session-ID': getSessionId(),
+            'ngrok-skip-browser-warning': 'true'
+        }
+    });
     if (!response.ok) throw new Error("Failed to fetch invoices");
     return await response.json();
 }
 
 
 export function getExcelExportUrl(status?: string): string {
-  const params = new URLSearchParams();
-  if (status) params.append("status", status);
+    const params = new URLSearchParams();
+    if (status) params.append("status", status);
+    params.append("session_id", getSessionId());
 
-  const query = params.toString();
-  return `${API_URL}/export/excel${query ? `?${query}` : ""}`;
+    const query = params.toString();
+    return `${API_URL}/export/excel${query ? `?${query}` : ""}`;
 }
 
 
-
 export async function fetchInvoice(id: string): Promise<Invoice> {
-    const response = await fetch(`${API_URL}/invoices/${id}`);
+    const response = await fetch(`${API_URL}/invoices/${id}`, {
+        headers: {
+            'X-Session-ID': getSessionId(),
+            'ngrok-skip-browser-warning': 'true'
+        }
+    });
     if (!response.ok) throw new Error("Failed to load invoice");
     return await response.json();
 }
@@ -47,7 +68,10 @@ export async function uploadInvoice(file: File): Promise<{invoice_id: string, or
     
     const response = await fetch(`${API_URL}/invoices/upload`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
     });
     
     if (!response.ok) {
@@ -59,7 +83,12 @@ export async function uploadInvoice(file: File): Promise<{invoice_id: string, or
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
-    const response = await fetch(`${API_URL}/invoices/${id}`, { method: 'DELETE' });
+    const response = await fetch(`${API_URL}/invoices/${id}`, { 
+        method: 'DELETE',
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to delete invoice');
 }
 
@@ -67,7 +96,8 @@ export async function updateInvoice(id: string, updates: Partial<Invoice>): Prom
     const response = await fetch(`${API_URL}/invoices/${id}/fields`, {
         method: 'PATCH',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-Session-ID': getSessionId()
         },
         body: JSON.stringify({ field_updates: updates })
     });
@@ -80,7 +110,8 @@ export async function approveInvoice(id: string): Promise<{ invoice: Invoice; ex
     const response = await fetch(`${API_URL}/invoices/${id}/approve`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-Session-ID': getSessionId()
         },
         body: JSON.stringify({ reviewed_by: 'reviewer' })
     });
@@ -93,13 +124,22 @@ export async function approveInvoice(id: string): Promise<{ invoice: Invoice; ex
 }
 
 export async function fetchSheetsLink(): Promise<{url: string | null}> {
-    const response = await fetch(`${API_URL}/export/sheets/link`);
+    const response = await fetch(`${API_URL}/export/sheets/link`, {
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to get sheet link');
     return await response.json();
 }
 
 export async function pollEmailInbox(): Promise<{processed: number}> {
-    const response = await fetch(`${API_URL}/email/poll`, { method: 'POST' });
+    const response = await fetch(`${API_URL}/email/poll`, { 
+        method: 'POST',
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to poll email inbox');
     return await response.json();
 }
@@ -114,7 +154,11 @@ export interface AuditLogEntry {
 }
 
 export async function fetchAuditLog(id: string): Promise<AuditLogEntry[]> {
-    const response = await fetch(`${API_URL}/invoices/${id}/audit-log`);
+    const response = await fetch(`${API_URL}/invoices/${id}/audit-log`, {
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to fetch audit log');
     return await response.json();
 }
@@ -125,18 +169,31 @@ export interface GoogleAuthStatus {
 }
 
 export async function fetchGoogleAuthStatus(): Promise<GoogleAuthStatus> {
-    const response = await fetch(`${API_URL}/auth/google/status`);
+    const response = await fetch(`${API_URL}/auth/google/status`, {
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to fetch Google auth status');
     return await response.json();
 }
 
 export async function disconnectGoogleAuth(): Promise<void> {
-    const response = await fetch(`${API_URL}/auth/google/disconnect`, { method: 'POST' });
+    const response = await fetch(`${API_URL}/auth/google/disconnect`, { 
+        method: 'POST',
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to disconnect Google account');
 }
 
 export async function fetchGoogleAuthUrl(): Promise<{url: string}> {
-    const response = await fetch(`${API_URL}/auth/google/url`);
+    const response = await fetch(`${API_URL}/auth/google/url`, {
+        headers: {
+            'X-Session-ID': getSessionId()
+        }
+    });
     if (!response.ok) throw new Error('Failed to fetch Google auth URL');
     return await response.json();
 }

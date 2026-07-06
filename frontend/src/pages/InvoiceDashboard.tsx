@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { type Invoice, fetchInvoices, deleteInvoice, pollEmailInbox, fetchGoogleAuthStatus, fetchSheetsLink, type GoogleAuthStatus } from '../api';
+import { type Invoice, fetchInvoices, deleteInvoice, pollEmailInbox, fetchGoogleAuthStatus, fetchSheetsLink, type GoogleAuthStatus, getExcelExportUrl } from '../api';
 import {
     FileSpreadsheet,
     Trash2,
@@ -223,7 +223,7 @@ export default function InvoiceDashboard() {
                                         )}
                                         <button
                                             onClick={() => {
-                                                window.open(`${API_URL}/export/excel`, '_blank');
+                                                window.open(getExcelExportUrl(statusFilter), '_blank');
                                                 setShowExportDropdown(false);
                                             }}
                                             style={{

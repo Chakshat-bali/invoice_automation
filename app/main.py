@@ -5,7 +5,7 @@ import logging
 import hashlib
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks, Header, Query
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -161,13 +161,72 @@ def process_invoice_background(invoice_id: str, file_path: str, inv_dir: str):
         db.close()
 
 
+def get_session_id(
+    x_session_id: str | None = Header(None, alias="X-Session-ID"),
+    session_id: str | None = Query(None)
+) -> str:
+    return x_session_id or session_id or "default"
+
+
+def cleanup_expired_sessions_task():
+    logger.info("Starting background cleanup of expired sessions")
+    from app.database import SessionLocal
+    db = SessionLocal()
+    import datetime
+    expiry_limit = datetime.datetime.utcnow() - datetime.timedelta(hours=4)
+    try:
+        old_invoices = db.query(Invoice).filter(Invoice.created_at < expiry_limit).all()
+        if old_invoices:
+            logger.info(f"Cleaning up {len(old_invoices)} expired invoices from database.")
+            for inv in old_invoices:
+                inv_dir = os.path.dirname(inv.file_path)
+                if os.path.exists(inv_dir):
+                    try:
+                        shutil.rmtree(inv_dir)
+                    except Exception as e:
+                        logger.error(f"Failed to delete directory {inv_dir}: {e}")
+                db.delete(inv)
+            db.commit()
+    except Exception as e:
+        logger.error(f"Error in background session cleanup: {e}")
+    finally:
+        db.close()
+
+
+@app.post("/session/end")
+@app.post("/session/{session_id}/end")
+def end_session(session_id: str | None = None, db: Session = Depends(get_db), current_session_id: str = Depends(get_session_id)):
+    sid = session_id or current_session_id
+    if not sid or sid == "default":
+        return {"status": "ignored"}
+    
+    logger.info(f"Ending session: {sid}")
+    # Find all invoices belonging to this session
+    invoices = db.query(Invoice).filter(Invoice.session_id == sid).all()
+    for inv in invoices:
+        inv_dir = os.path.dirname(inv.file_path)
+        if os.path.exists(inv_dir):
+            try:
+                shutil.rmtree(inv_dir)
+            except Exception as e:
+                logger.error(f"Failed to delete directory {inv_dir}: {e}")
+        db.delete(inv)
+    
+    # Delete google oauth tokens
+    db.query(GoogleOAuthToken).filter(GoogleOAuthToken.session_id == sid).delete()
+    
+    db.commit()
+    return {"status": "success", "session_id": sid}
+
+
 @app.post("/invoices/upload")
 async def upload_invoice(file: UploadFile = File(...),
                           background_tasks: BackgroundTasks = None,
                           email_sender: str | None = None,
                           email_subject: str | None = None,
+                          session_id: str = Depends(get_session_id),
                           db: Session = Depends(get_db)):
-    logger.info(f"Received upload request for file: {file.filename}")
+    logger.info(f"Received upload request for file: {file.filename} (session: {session_id})")
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         logger.error(f"Unsupported file type: {ext}")
@@ -177,10 +236,14 @@ async def upload_invoice(file: UploadFile = File(...),
     file_bytes = await file.read()
     file_hash = hashlib.sha256(file_bytes).hexdigest()
     
-    # Check if hash already exists in DB
-    existing = db.query(Invoice).filter(Invoice.file_hash == file_hash, Invoice.status != "error").first()
+    # Check if hash already exists in DB for this session
+    existing = db.query(Invoice).filter(
+        Invoice.file_hash == file_hash, 
+        Invoice.status != "error",
+        Invoice.session_id == session_id
+    ).first()
     if existing:
-        logger.warning(f"Duplicate file upload attempt: {file.filename} matches invoice {existing.id}")
+        logger.warning(f"Duplicate file upload attempt: {file.filename} matches invoice {existing.id} in session {session_id}")
         raise HTTPException(400, f"This exact file has already been uploaded.")
 
     invoice_id = gen_id()
@@ -193,6 +256,7 @@ async def upload_invoice(file: UploadFile = File(...),
     # Create initial record
     invoice = Invoice(
         id=invoice_id,
+        session_id=session_id,
         original_filename=file.filename,
         file_path=saved_path,
         file_hash=file_hash,
@@ -213,8 +277,10 @@ async def upload_invoice(file: UploadFile = File(...),
 
 
 @app.get("/invoices")
-def list_invoices(status: str | None = None, vendor: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(Invoice).filter(Invoice.status != "error")
+def list_invoices(status: str | None = None, vendor: str | None = None, background_tasks: BackgroundTasks = None, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    if background_tasks:
+        background_tasks.add_task(cleanup_expired_sessions_task)
+    query = db.query(Invoice).filter(Invoice.session_id == session_id, Invoice.status != "error")
     if status:
         query = query.filter(Invoice.status == status)
     if vendor:
@@ -224,16 +290,16 @@ def list_invoices(status: str | None = None, vendor: str | None = None, db: Sess
 
 
 @app.get("/invoices/{invoice_id}")
-def get_invoice(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def get_invoice(invoice_id: str, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         raise HTTPException(404, "Invoice not found")
     return _serialize_invoice(inv)
 
 
 @app.get("/invoices/{invoice_id}/review")
-def get_invoice_for_review(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def get_invoice_for_review(invoice_id: str, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         raise HTTPException(404, "Invoice not found")
     data = _serialize_invoice(inv)
@@ -245,22 +311,39 @@ def get_invoice_for_review(invoice_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/invoices/{invoice_id}/file")
-def get_invoice_file(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def get_invoice_file(invoice_id: str, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv or not os.path.exists(inv.file_path):
         raise HTTPException(404, "File not found")
-    return FileResponse(inv.file_path, filename=inv.original_filename)
+    
+    ext = os.path.splitext(inv.original_filename)[1].lower()
+    media_types = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".tiff": "image/tiff",
+        ".bmp": "image/bmp",
+    }
+    media_type = media_types.get(ext, "application/octet-stream")
+    
+    return FileResponse(
+        inv.file_path,
+        media_type=media_type,
+        filename=inv.original_filename,
+        content_disposition_type="inline"
+    )
 
 
 
 
 
 @app.patch("/invoices/{invoice_id}/fields")
-def update_fields(invoice_id: str, req: FieldUpdateRequest, db: Session = Depends(get_db)):
-    logger.info(f"Received update fields request for invoice ID: {invoice_id}")
+def update_fields(invoice_id: str, req: FieldUpdateRequest, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    logger.info(f"Received update fields request for invoice ID: {invoice_id} (session: {session_id})")
     logger.info(f"Field updates requested: {req.field_updates}")
     
-    inv = db.get(Invoice, invoice_id)
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         logger.error(f"Invoice not found with ID: {invoice_id}")
         raise HTTPException(404, "Invoice not found")
@@ -311,8 +394,8 @@ def update_fields(invoice_id: str, req: FieldUpdateRequest, db: Session = Depend
 
 
 @app.post("/invoices/{invoice_id}/approve")
-def approve_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def approve_invoice(invoice_id: str, req: ApproveRequest, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         raise HTTPException(404, "Invoice not found")
     if inv.validation_status == "flagged":
@@ -332,8 +415,8 @@ def approve_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(
 
 
 @app.post("/invoices/{invoice_id}/reject")
-def reject_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def reject_invoice(invoice_id: str, req: ApproveRequest, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         raise HTTPException(404, "Invoice not found")
     inv.status = "rejected"
@@ -345,8 +428,8 @@ def reject_invoice(invoice_id: str, req: ApproveRequest, db: Session = Depends(g
 
 
 @app.get("/invoices/{invoice_id}/audit-log")
-def get_audit_log(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def get_audit_log(invoice_id: str, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         raise HTTPException(404, "Invoice not found")
     return [
@@ -385,8 +468,8 @@ def _run_exports(inv: Invoice) -> dict:
 
 
 @app.post("/invoices/{invoice_id}/export")
-def manual_export(invoice_id: str, db: Session = Depends(get_db)):
-    inv = db.get(Invoice, invoice_id)
+def manual_export(invoice_id: str, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         raise HTTPException(404, "Invoice not found")
     results = _run_exports(inv)
@@ -396,8 +479,8 @@ def manual_export(invoice_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/export/excel")
-def export_excel(status: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(Invoice)
+def export_excel(status: str | None = None, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    query = db.query(Invoice).filter(Invoice.session_id == session_id)
     if status:
         query = query.filter(Invoice.status == status)
     else:
@@ -432,9 +515,9 @@ def get_sheets_status():
 
 
 @app.delete("/invoices/{invoice_id}")
-def delete_invoice(invoice_id: str, db: Session = Depends(get_db)):
-    logger.info(f"Received delete request for invoice ID: {invoice_id}")
-    inv = db.get(Invoice, invoice_id)
+def delete_invoice(invoice_id: str, session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    logger.info(f"Received delete request for invoice ID: {invoice_id} (session: {session_id})")
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.session_id == session_id).first()
     if not inv:
         logger.error(f"Invoice not found with ID: {invoice_id}")
         raise HTTPException(404, "Invoice not found")
@@ -453,9 +536,9 @@ def delete_invoice(invoice_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/email/poll")
-def trigger_email_poll(db: Session = Depends(get_db)):
+def trigger_email_poll(session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
     from app.email_ingest import poll_inbox
-    processed = poll_inbox(db)
+    processed = poll_inbox(db, session_id=session_id)
     return {"processed": processed}
 
 
@@ -467,7 +550,7 @@ SCOPES = [
 
 
 @app.get("/auth/google/url")
-def get_google_auth_url():
+def get_google_auth_url(session_id: str = Depends(get_session_id)):
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(400, "Google Client ID or Client Secret not configured in .env")
     
@@ -484,14 +567,16 @@ def get_google_auth_url():
         scopes=SCOPES,
         redirect_uri="http://localhost:8000/auth/google/callback"
     )
-    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline", state=session_id)
     return {"url": auth_url}
 
 
 @app.get("/auth/google/callback")
-def google_auth_callback(code: str, db: Session = Depends(get_db)):
+def google_auth_callback(code: str, state: str | None = None, db: Session = Depends(get_db)):
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(400, "Google OAuth not configured")
+
+    session_id = state or "default"
 
     from google_auth_oauthlib.flow import Flow
     flow = Flow.from_client_config(
@@ -515,9 +600,10 @@ def google_auth_callback(code: str, db: Session = Depends(get_db)):
     user_info = service.userinfo().get().execute()
     email = user_info.get("email")
 
-    db.query(GoogleOAuthToken).delete()
+    db.query(GoogleOAuthToken).filter(GoogleOAuthToken.session_id == session_id).delete()
     
     token_entry = GoogleOAuthToken(
+        session_id=session_id,
         access_token=creds.token,
         refresh_token=creds.refresh_token,
         token_uri=creds.token_uri,
@@ -534,16 +620,16 @@ def google_auth_callback(code: str, db: Session = Depends(get_db)):
 
 
 @app.get("/auth/google/status")
-def google_auth_status(db: Session = Depends(get_db)):
-    token = db.query(GoogleOAuthToken).first()
+def google_auth_status(session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    token = db.query(GoogleOAuthToken).filter(GoogleOAuthToken.session_id == session_id).first()
     if not token:
         return {"connected": False, "email": None}
     return {"connected": True, "email": token.email}
 
 
 @app.post("/auth/google/disconnect")
-def google_auth_disconnect(db: Session = Depends(get_db)):
-    db.query(GoogleOAuthToken).delete()
+def google_auth_disconnect(session_id: str = Depends(get_session_id), db: Session = Depends(get_db)):
+    db.query(GoogleOAuthToken).filter(GoogleOAuthToken.session_id == session_id).delete()
     db.commit()
     return {"status": "success"}
 

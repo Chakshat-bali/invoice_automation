@@ -1,10 +1,23 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { Home, LayoutDashboard } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import InvoiceDashboard from './pages/InvoiceDashboard';
 import Review from './pages/Review';
+import { API_URL, getSessionId } from './api';
 
 function App() {
+  useEffect(() => {
+    const handleUnload = () => {
+      const sid = sessionStorage.getItem('invoice_session_id');
+      if (sid && sid !== 'default') {
+        navigator.sendBeacon(`${API_URL}/session/${sid}/end`);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
+
   return (
     <BrowserRouter>
       <header style={{

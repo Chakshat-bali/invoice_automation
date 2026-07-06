@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 from sqlalchemy import (Boolean, Column, DateTime, Float, ForeignKey,
-                         Integer, String, Text, create_engine)
+                         Integer, String, Text, create_engine, text)
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 from app.config import settings
@@ -23,6 +23,7 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     id = Column(String, primary_key=True, default=gen_id)
+    session_id = Column(String, default="default", index=True)
     original_filename = Column(String)
     file_path = Column(String)
     file_hash = Column(String, nullable=True, index=True)
@@ -85,6 +86,7 @@ class GoogleOAuthToken(Base):
     __tablename__ = "google_oauth_tokens"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String, default="default", index=True)
     access_token = Column(Text, nullable=False)
     refresh_token = Column(Text, nullable=True)
     token_uri = Column(Text, nullable=False)
@@ -98,6 +100,24 @@ class GoogleOAuthToken(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    
+    # Check if session_id columns exist, and dynamically alter tables if they do not.
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    
+    # Migrate invoices table
+    columns_invoices = [c["name"] for c in inspector.get_columns("invoices")]
+    if "session_id" not in columns_invoices:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE invoices ADD COLUMN session_id VARCHAR DEFAULT 'default'"))
+            conn.commit()
+            
+    # Migrate google_oauth_tokens table
+    columns_tokens = [c["name"] for c in inspector.get_columns("google_oauth_tokens")]
+    if "session_id" not in columns_tokens:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE google_oauth_tokens ADD COLUMN session_id VARCHAR DEFAULT 'default'"))
+            conn.commit()
 
 
 def get_db():
