@@ -1,7 +1,7 @@
 /* Dashboard Layout & Animations */
 .hero {
     text-align: center;
-    padding: 60px 20px 80px;
+    padding: 40px 20px 32px;
     max-width: 800px;
     margin: 0 auto;
     animation: fadeUp 0.8s ease-out;
@@ -34,7 +34,7 @@
 
 .main-container {
     max-width: 1200px;
-    margin: -40px auto 60px;
+    margin: 0 auto 48px;
     padding: 0 20px;
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -464,5 +464,23 @@
     .main-container {
         grid-template-columns: 1fr;
     }
+}
+
+.footer-text {
+    text-align: center;
+    padding: 24px 20px 60px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+    transition: all 0.3s ease;
+    animation: fadeUp 0.8s ease-out 0.6s both;
+}
+
+.footer-text:hover {
+    color: var(--accent);
+    opacity: 1;
+    cursor: default;
 }
 
